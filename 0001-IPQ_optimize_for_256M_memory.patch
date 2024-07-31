@@ -1,0 +1,337 @@
+From 5f40d508455873de0b2ee980047c1cb87e73cc78 Mon Sep 17 00:00:00 2001
+From: Ding Nan <dingnan21@qq.com>
+Date: Wed, 31 Jul 2024 11:34:23 +0800
+Subject: [PATCH] IPQ optimize for 256M memory
+
+---
+ package/qca/qca-nss-clients/Makefile          | 10 ++-
+ package/qca/qca-nss-dp/Makefile               | 16 +++-
+ package/qca/qca-nss-drv/Makefile              | 67 ++++++++++++++++-
+ package/qca/qca-nss-ecm/Makefile              | 73 ++++++++++++++-----
+ .../linux/qualcommax/ipq60xx/config-default   |  2 +
+ 5 files changed, 142 insertions(+), 26 deletions(-)
+
+diff --git a/package/qca/qca-nss-clients/Makefile b/package/qca/qca-nss-clients/Makefile
+index 555fd790f..330ebebc4 100644
+--- a/package/qca/qca-nss-clients/Makefile
++++ b/package/qca/qca-nss-clients/Makefile
+@@ -1,18 +1,22 @@
+ include $(TOPDIR)/rules.mk
+ 
+ PKG_NAME:=qca-nss-clients
+-PKG_RELEASE:=1
++
++QSDK_VERSION:=12.4
+ 
+ PKG_SOURCE_PROTO:=git
+ PKG_SOURCE_DATE:=2023-10-04
+ PKG_SOURCE_URL:=https://git.codelinaro.org/clo/qsdk/oss/lklm/nss-clients.git
+ PKG_SOURCE_VERSION:=f058ae199b42f30be9925b2ed1ce53afb128200c
+ PKG_MIRROR_HASH:=90401b577a7750d3b7eadb423700aab7e1da1af392637598e08f6007f23a92e1
++PKG_VERSION:=$(QSDK_VERSION)-$(subst -,.,$(PKG_SOURCE_DATE))
++
+ 
+ PKG_BUILD_PARALLEL:=1
+ 
+ include $(INCLUDE_DIR)/kernel.mk
+ include $(INCLUDE_DIR)/package.mk
++include $(TOPDIR)/target/linux/qualcommax/ipq60xx/config-default
+ 
+ ifeq ($(CONFIG_TARGET_SUBTARGET), "ipq807x")
+   SOC="ipq807x_64"
+@@ -566,6 +570,10 @@ ifneq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-netlink),)
+ NSS_CLIENTS_MAKE_OPTS+=netlink=y
+ endif
+ 
++ifeq ($(CONFIG_KERNEL_IPQ_MEM_PROFILE),256)
++EXTRA_CFLAGS+= -DNSS_NETLINK_UDP_ST_NO_RMNET_SUPPORT
++endif
++
+ ifneq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-qdisc),)
+ NSS_CLIENTS_MAKE_OPTS+=qdisc=y
+ endif
+diff --git a/package/qca/qca-nss-dp/Makefile b/package/qca/qca-nss-dp/Makefile
+index c029f1ffb..4fb9fda48 100644
+--- a/package/qca/qca-nss-dp/Makefile
++++ b/package/qca/qca-nss-dp/Makefile
+@@ -1,19 +1,23 @@
+ include $(TOPDIR)/rules.mk
+ 
+ PKG_NAME:=qca-nss-dp
+-PKG_RELEASE:=2
++
++QSDK_VERSION:=12.4.5.r1
+ 
+ PKG_SOURCE_URL:=https://git.codelinaro.org/clo/qsdk/oss/lklm/nss-dp.git
+ PKG_SOURCE_PROTO:=git
+ PKG_SOURCE_DATE:=2023-06-06
+ PKG_SOURCE_VERSION:=fa67464466f69f00967cc373d1bdd6025f57eb89
+-PKG_MIRROR_HASH:=51bf524382a5cb542c2c80d12a91f87b9736de3ac3c1d4a351c97b3502d68574
++PKG_MIRROR_HASH:=skip
++PKG_VERSION:=$(QSDK_VERSION)-$(subst -,.,$(PKG_SOURCE_DATE))
+ 
+ PKG_BUILD_PARALLEL:=1
+ PKG_FLAGS:=nonshared
+ 
+ include $(INCLUDE_DIR)/kernel.mk
+ include $(INCLUDE_DIR)/package.mk
++include $(TOPDIR)/target/linux/qualcommax/ipq60xx/config-default
++
+ 
+ define KernelPackage/qca-nss-dp
+   SECTION:=kernel
+@@ -37,6 +41,14 @@ endef
+ EXTRA_CFLAGS+= \
+ 	-I$(STAGING_DIR)/usr/include/qca-ssdk
+ 
++ifeq ($(CONFIG_KERNEL_IPQ_MEM_PROFILE),256)
++EXTRA_CFLAGS+= -DNSS_DP_MEM_PROFILE_LOW
++else ifeq ($(CONFIG_LOWMEM_FLASH),y)
++EXTRA_CFLAGS+= -DNSS_DP_MEM_PROFILE_LOW
++else ifeq ($(CONFIG_KERNEL_IPQ_MEM_PROFILE),512)
++EXTRA_CFLAGS+= -DNSS_DP_MEM_PROFILE_MEDIUM
++endif
++
+ NSS_DP_HAL_DIR:=$(PKG_BUILD_DIR)/hal
+ define Build/Configure
+ 	$(LN) $(NSS_DP_HAL_DIR)/soc_ops/$(CONFIG_TARGET_SUBTARGET)/nss_$(CONFIG_TARGET_SUBTARGET).h \
+diff --git a/package/qca/qca-nss-drv/Makefile b/package/qca/qca-nss-drv/Makefile
+index f7ef833f9..f3d8003e6 100644
+--- a/package/qca/qca-nss-drv/Makefile
++++ b/package/qca/qca-nss-drv/Makefile
+@@ -1,13 +1,16 @@
+ include $(TOPDIR)/rules.mk
+ 
+ PKG_NAME:=qca-nss-drv
+-PKG_RELEASE:=1
++
++QSDK_VERSION:=12.4.r3
+ 
+ PKG_SOURCE_PROTO:=git
+ PKG_SOURCE_DATE:=2023-08-06
+ PKG_SOURCE_URL:=https://git.codelinaro.org/clo/qsdk/oss/lklm/nss-drv.git
+ PKG_SOURCE_VERSION:=1ab184034529539f61093184a67d4454cb3eb352
+-PKG_MIRROR_HASH:=6aa081c0853d3e3b6d78eee588a0967e540b2317d15aef3c3f6f7129925653f7
++PKG_MIRROR_HASH:=skip
++PKG_VERSION:=$(QSDK_VERSION)-$(subst -,.,$(PKG_SOURCE_DATE))
++
+ 
+ PKG_BUILD_PARALLEL:=1
+ PKG_FLAGS:=nonshared
+@@ -60,6 +63,7 @@ PKG_CONFIG_DEPENDS:= \
+ 
+ include $(INCLUDE_DIR)/kernel.mk
+ include $(INCLUDE_DIR)/package.mk
++include $(TOPDIR)/target/linux/qualcommax/ipq60xx/config-default
+ 
+ NSS_CLIENTS_DIR:=$(TOPDIR)/qca/src/qca-nss-clients
+ 
+@@ -119,7 +123,19 @@ EXTRA_CFLAGS+= -I$(STAGING_DIR)/usr/include/qca-nss-gmac \
+ 			   -Wno-unused-variable \
+ 			   -Wno-error=unused-function
+ 
+-ifeq ($(BOARD),qualcommax)
++#ifeq ($(BOARD),qualcommax)
++#EXTRA_CFLAGS+= -DNSS_MEM_PROFILE_MEDIUM
++#endif
++
++ifeq ($(CONFIG_KERNEL_IPQ_MEM_PROFILE),256)
++EXTRA_CFLAGS+= -DNSS_MEM_PROFILE_LOW
++LOW_MEM_PROFILE_MAKE_OPTS=y
++DISABLE_DRV_MAKE_OPTS=y
++else ifeq ($(CONFIG_LOWMEM_FLASH),y)
++EXTRA_CFLAGS+= -DNSS_MEM_PROFILE_LOW
++LOW_MEM_PROFILE_MAKE_OPTS=y
++DISABLE_DRV_MAKE_OPTS=y
++else ifeq ($(CONFIG_KERNEL_IPQ_MEM_PROFILE),512)
+ EXTRA_CFLAGS+= -DNSS_MEM_PROFILE_MEDIUM
+ endif
+ 
+@@ -257,6 +273,51 @@ ifndef CONFIG_NSS_DRV_WIFI_MESH_ENABLE
+    DRV_MAKE_OPTS += NSS_DRV_WIFI_MESH_ENABLE=n
+ endif
+ 
++ifeq ($(LOW_MEM_PROFILE_MAKE_OPTS),y)
++DRV_MAKE_OPTS+=NSS_DRV_CAPWAP_ENABLE=n \
++        NSS_DRV_TRUSTSEC_ENABLE=n \
++        NSS_DRV_TRUSTSEC_RX_ENABLE=n \
++        NSS_DRV_DTLS_ENABLE=n \
++        NSS_DRV_PVXLAN_ENABLE=n
++endif
++
++DRV_MAKE_OPTS:=
++ifeq ($(DISABLE_DRV_MAKE_OPTS),y)
++DRV_MAKE_OPTS+=NSS_DRV_C2C_ENABLE=n \
++        NSS_DRV_CLMAP_ENABLE=n \
++        NSS_DRV_GRE_ENABLE=n \
++        NSS_DRV_GRE_REDIR_ENABLE=n \
++        NSS_DRV_GRE_TUNNEL_ENABLE=n \
++        NSS_DRV_IGS_ENABLE=n \
++        NSS_DRV_IPSEC_ENABLE=n \
++        NSS_DRV_LAG_ENABLE=n \
++        NSS_DRV_L2TP_ENABLE=n \
++        NSS_DRV_MAPT_ENABLE=n \
++        NSS_DRV_OAM_ENABLE=n \
++        NSS_DRV_PPTP_ENABLE=n \
++        NSS_DRV_PORTID_ENABLE=n \
++        NSS_DRV_QRFS_ENABLE=n \
++        NSS_DRV_QVPN_ENABLE=n \
++        NSS_DRV_RMNET_ENABLE=n \
++        NSS_DRV_SHAPER_ENABLE=n \
++        NSS_DRV_SJACK_ENABLE=n \
++        NSS_DRV_TLS_ENABLE=n \
++        NSS_DRV_TSTAMP_ENABLE=n \
++        NSS_DRV_TUN6RD_ENABLE=n \
++        NSS_DRV_TUNIPIP6_ENABLE=n \
++        NSS_DRV_VXLAN_ENABLE=n \
++        NSS_DRV_MATCH_ENABLE=n \
++        NSS_DRV_MIRROR_ENABLE=n \
++        NSS_DRV_WIFI_EXT_VDEV_ENABLE=n \
++        NSS_DRV_WIFI_MESH_ENABLE=n \
++        NSS_DRV_IPV4_REASM_ENABLE=n \
++        NSS_DRV_IPV6_REASM_ENABLE=n
++endif
++
++ifeq ($(CONFIG_KERNEL_SKB_FIXED_SIZE_2K),y)
++EXTRA_CFLAGS+= -DNSS_SKB_FIXED_SIZE_2K
++endif
++
+ define Build/Configure
+ 	$(LN) arch/nss_$(SOC).h $(PKG_BUILD_DIR)/exports/nss_arch.h
+ endef
+diff --git a/package/qca/qca-nss-ecm/Makefile b/package/qca/qca-nss-ecm/Makefile
+index c5de42d92..7800a8e29 100644
+--- a/package/qca/qca-nss-ecm/Makefile
++++ b/package/qca/qca-nss-ecm/Makefile
+@@ -1,19 +1,24 @@
+ include $(TOPDIR)/rules.mk
+ 
+ PKG_NAME:=qca-nss-ecm
+-PKG_RELEASE=2
++
++QSDK_VERSION:=12.4
+ 
+ PKG_SOURCE_PROTO:=git
+ PKG_SOURCE_DATE:=2023-10-20
+ PKG_SOURCE_URL:=https://git.codelinaro.org/clo/qsdk/oss/lklm/qca-nss-ecm.git
+ PKG_SOURCE_VERSION:=82b27915fffdbe2cdb2d4eb70e5736ccf92e2560
+-PKG_MIRROR_HASH:=643895cb187cacfcde337c19dc5a34512acc225c0db1813a15cc1b66523835c4
++PKG_MIRROR_HASH:=skip
++PKG_VERSION:=$(QSDK_VERSION)-$(subst -,.,$(PKG_SOURCE_DATE))
+ 
+ PKG_BUILD_PARALLEL:=1
+ PKG_FLAGS:=nonshared
++PKG_BUILD_FLAGS:=gc-sections lto
+ 
+ include $(INCLUDE_DIR)/kernel.mk
+ include $(INCLUDE_DIR)/package.mk
++include $(TOPDIR)/target/linux/qualcommax/ipq60xx/config-default
++
+ 
+ define KernelPackage/qca-nss-ecm
+   SECTION:=kernel
+@@ -56,23 +61,59 @@ define KernelPackage/qca-nss-ecm/install
+ 	$(INSTALL_DATA) ./files/qca-nss-ecm.defaults $(1)/etc/uci-defaults/99-qca-nss-ecm
+ 	$(INSTALL_BIN) ./files/qca-nss-ecm.sysctl $(1)/etc/sysctl.d/qca-nss-ecm.conf
+ 	$(INSTALL_BIN) ./files/disable_offloads.hotplug $(1)/etc/hotplug.d/net/99-disable_offloads
++ifeq ($(CONFIG_KERNEL_IPQ_MEM_PROFILE),256)
++	echo 'net.netfilter.nf_conntrack_max=10240' >> $(1)/etc/sysctl.d/qca-nss-ecm.conf
++else ifeq ($(CONFIG_LOWMEM_FLASH),y)
++	echo 'net.netfilter.nf_conntrack_max=10240' >> $(1)/etc/sysctl.d/qca-nss-ecm.conf
++else ifeq ($(CONFIG_KERNEL_IPQ_MEM_PROFILE),512)
++	echo 'net.netfilter.nf_conntrack_max=40960' >> $(1)/etc/sysctl.d/qca-nss-ecm.conf
++endif
+ endef
+ 
+ EXTRA_CFLAGS+= \
+ 		 -I$(STAGING_DIR)/usr/include/qca-nss-drv \
+-		 -I$(STAGING_DIR)/usr/include/qca-mcs \
+-		 -I$(STAGING_DIR)/usr/include/nat46
++		 -I$(STAGING_DIR)/usr/include/qca-mcs 
+ 
+ ifeq ($(BOARD),qualcommax)
+ ECM_MAKE_OPTS+=ECM_FRONT_END_NSS_ENABLE=y \
+-			   ECM_FRONT_END_SFE_ENABLE=n \
+-			   ECM_NON_PORTED_SUPPORT_ENABLE=y \
+-			   ECM_INTERFACE_BOND_ENABLE=y \
+-			   ECM_INTERFACE_VLAN_ENABLE=y \
+-			   ECM_CLASSIFIER_MARK_ENABLE=y \
+-			   ECM_CLASSIFIER_DSCP_ENABLE=y \
+-			   ECM_CLASSIFIER_PCC_ENABLE=n \
+-			   ECM_BAND_STEERING_ENABLE=n
++	       ECM_FRONT_END_SFE_ENABLE=n \
++	       ECM_NON_PORTED_SUPPORT_ENABLE=y \
++	       ECM_INTERFACE_BOND_ENABLE=y \
++	       ECM_INTERFACE_VLAN_ENABLE=y \
++	       ECM_CLASSIFIER_MARK_ENABLE=y \
++	       ECM_CLASSIFIER_DSCP_ENABLE=y \
++	       ECM_CLASSIFIER_PCC_ENABLE=n \
++	       # additional standard feature to add
++	       ECM_INTERFACE_RAWIP_ENABLE=y \
++	       ECM_BAND_STEERING_ENABLE=n
++endif
++
++ifneq ($(CONFIG_KERNEL_IPQ_MEM_PROFILE),256)
++ifneq ($(CONFIG_LOWMEM_FLASH),y)
++EXTRA_CFLAGS+= -I$(STAGING_DIR)/usr/include/nat46
++endif
++endif
++
++ifeq ($(CONFIG_KERNEL_IPQ_MEM_PROFILE),256)
++ECM_MAKE_OPTS+=ECM_FRONT_END_CONN_LIMIT_ENABLE=y
++else ifeq ($(CONFIG_LOWMEM_FLASH),y)
++ECM_MAKE_OPTS+=ECM_FRONT_END_CONN_LIMIT_ENABLE=y
++endif
++
++ifneq ($(CONFIG_KERNEL_IPQ_MEM_PROFILE),256)
++ifneq ($(CONFIG_LOWMEM_FLASH),y)
++ifneq ($(CONFIG_PACKAGE_kmod-nat46),)
++ECM_MAKE_OPTS+=ECM_INTERFACE_MAP_T_ENABLE=y
++endif
++endif
++endif
++
++ifneq ($(CONFIG_KERNEL_IPQ_MEM_PROFILE),256)
++ifneq ($(CONFIG_LOWMEM_FLASH),y)
++ifneq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-vxlanmgr),)
++ECM_MAKE_OPTS+=ECM_INTERFACE_VXLAN_ENABLE=y
++endif
++endif
+ endif
+ 
+ # Disable ECM IPv6 support when global IPv6 support is disabled.
+@@ -84,10 +125,6 @@ ifneq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-ovpn-link),)
+ ECM_MAKE_OPTS+=ECM_INTERFACE_OVPN_ENABLE=y
+ endif
+ 
+-ifneq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-vxlanmgr),)
+-ECM_MAKE_OPTS+=ECM_INTERFACE_VXLAN_ENABLE=y
+-endif
+-
+ ifneq ($(CONFIG_PACKAGE_kmod-qca-ovsmgr),)
+ ECM_MAKE_OPTS+=ECM_INTERFACE_OVS_BRIDGE_ENABLE=y \
+ 			   ECM_CLASSIFIER_OVS_ENABLE=y
+@@ -102,10 +139,6 @@ ifneq ($(CONFIG_PACKAGE_kmod-qca-mcs),)
+ ECM_MAKE_OPTS+=ECM_MULTICAST_ENABLE=y
+ endif
+ 
+-ifneq ($(CONFIG_PACKAGE_kmod-nat46),)
+-ECM_MAKE_OPTS+=ECM_INTERFACE_MAP_T_ENABLE=y
+-endif
+-
+ ifneq ($(CONFIG_PACKAGE_kmod-ipsec),)
+ ECM_MAKE_OPTS+=ECM_INTERFACE_IPSEC_ENABLE=y
+ endif
+diff --git a/target/linux/qualcommax/ipq60xx/config-default b/target/linux/qualcommax/ipq60xx/config-default
+index 83ea4b8ee..1c5d098ce 100644
+--- a/target/linux/qualcommax/ipq60xx/config-default
++++ b/target/linux/qualcommax/ipq60xx/config-default
+@@ -8,3 +8,5 @@ CONFIG_PWM_SYSFS=y
+ # CONFIG_QCOM_RPMPD is not set
+ CONFIG_QCOM_SMD_RPM=y
+ CONFIG_REGULATOR_QCOM_SMD_RPM=y
++CONFIG_KERNEL_IPQ_MEM_PROFILE=256
++CONFIG_KERNEL_SKB_FIXED_SIZE_2K=y
+-- 
+2.25.1
+
