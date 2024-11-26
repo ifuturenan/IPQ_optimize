@@ -1,0 +1,95 @@
+From f3143b8a84730db60664cc2b2af7d811b381ac31 Mon Sep 17 00:00:00 2001
+From: DING NAN <dingnan21@qq.com>
+Date: Tue, 19 Nov 2024 09:39:32 +0000
+Subject: [PATCH] Revert to original OpenWrt
+
+---
+ include/version.mk                           |  8 ++++----
+ package/base-files/files/bin/config_generate |  2 +-
+ package/base-files/files/etc/banner          | 14 ++++++--------
+ package/base-files/image-config.in           |  4 ++--
+ 4 files changed, 13 insertions(+), 15 deletions(-)
+
+diff --git a/include/version.mk b/include/version.mk
+index e5dd1ce..59b41e3 100644
+--- a/include/version.mk
++++ b/include/version.mk
+@@ -23,20 +23,20 @@ PKG_CONFIG_DEPENDS += \
+ sanitize = $(call tolower,$(subst _,-,$(subst $(space),-,$(1))))
+ 
+ VERSION_NUMBER:=$(call qstrip,$(CONFIG_VERSION_NUMBER))
+-VERSION_NUMBER:=$(if $(VERSION_NUMBER),$(VERSION_NUMBER),SNAPSHOT)
++VERSION_NUMBER:=$(if $(VERSION_NUMBER),$(VERSION_NUMBER),R24.11.18 v1.1 rc1)
+ 
+ VERSION_CODE:=$(call qstrip,$(CONFIG_VERSION_CODE))
+-VERSION_CODE:=$(if $(VERSION_CODE),$(VERSION_CODE),$(REVISION))
++VERSION_CODE:=$(if $(VERSION_CODE),$(VERSION_CODE),)
+ 
+ VERSION_REPO:=$(call qstrip,$(CONFIG_VERSION_REPO))
+ VERSION_REPO:=$(if $(VERSION_REPO),$(VERSION_REPO),https://downloads.openwrt.org/snapshots)
+ 
+ VERSION_DIST:=$(call qstrip,$(CONFIG_VERSION_DIST))
+-VERSION_DIST:=$(if $(VERSION_DIST),$(VERSION_DIST),LiBwrt)
++VERSION_DIST:=$(if $(VERSION_DIST),$(VERSION_DIST),OpenWrt)
+ VERSION_DIST_SANITIZED:=$(call sanitize,$(VERSION_DIST))
+ 
+ VERSION_MANUFACTURER:=$(call qstrip,$(CONFIG_VERSION_MANUFACTURER))
+-VERSION_MANUFACTURER:=$(if $(VERSION_MANUFACTURER),$(VERSION_MANUFACTURER),LiBwrt)
++VERSION_MANUFACTURER:=$(if $(VERSION_MANUFACTURER),$(VERSION_MANUFACTURER),OpenWrt)
+ 
+ VERSION_MANUFACTURER_URL:=$(call qstrip,$(CONFIG_VERSION_MANUFACTURER_URL))
+ VERSION_MANUFACTURER_URL:=$(if $(VERSION_MANUFACTURER_URL),$(VERSION_MANUFACTURER_URL),https://openwrt.org/)
+diff --git a/package/base-files/files/bin/config_generate b/package/base-files/files/bin/config_generate
+index de8e2f2..6691958 100755
+--- a/package/base-files/files/bin/config_generate
++++ b/package/base-files/files/bin/config_generate
+@@ -311,7 +311,7 @@ generate_static_system() {
+ 	uci -q batch <<-EOF
+ 		delete system.@system[0]
+ 		add system system
+-		set system.@system[-1].hostname='LibWrt'
++		set system.@system[-1].hostname='OpenWrt'
+ 		set system.@system[-1].timezone='CST-8'
+ 		set system.@system[-1].ttylogin='0'
+ 		set system.@system[-1].log_size='128'
+diff --git a/package/base-files/files/etc/banner b/package/base-files/files/etc/banner
+index fd0297f..8afc39b 100644
+--- a/package/base-files/files/etc/banner
++++ b/package/base-files/files/etc/banner
+@@ -1,10 +1,8 @@
+- __           ____    Commercial         __      
+-/\ \       __/\  _`\       Prohibition  /\ \__   
+-\ \ \     /\_\ \ \L\ \  __  __  __  _ __\ \ ,_\  
+- \ \ \  __\/\ \ \  _ <'/\ \/\ \/\ \/\`'__\ \ \/  
+-  \ \ \L\ \\ \ \ \ \L\ \ \ \_/ \_/ \ \ \/ \ \ \_ 
+-   \ \____/ \ \_\ \____/\ \___x___/'\ \_\  \ \__\
+-    \/___/   \/_/\/___/  \/__//__/   \/_/   \/__/                         
++  _______                     ________        __
++ |       |.-----.-----.-----.|  |  |  |.----.|  |_
++ |   -   ||  _  |  -__|     ||  |  |  ||   _||   _|
++ |_______||   __|_____|__|__||________||__|  |____|
++          |__| W I R E L E S S   F R E E D O M
+  -----------------------------------------------------
+-  %D %V, %C
++ %D %V  %C
+  -----------------------------------------------------
+diff --git a/package/base-files/image-config.in b/package/base-files/image-config.in
+index 39acfb4..dee06e9 100644
+--- a/package/base-files/image-config.in
++++ b/package/base-files/image-config.in
+@@ -165,10 +165,10 @@ if VERSIONOPT
+ 	config VERSION_DIST
+ 		string
+ 		prompt "Release distribution"
+-		default "LiBwrt"
++		default "OpenWrt"
+ 		help
+ 			This is the name of the release distribution.
+-			If unspecified, it defaults to LiBwrt.
++			If unspecified, it defaults to OpenWrt.
+ 
+ 	config VERSION_NUMBER
+ 		string
+-- 
+2.34.1
+
